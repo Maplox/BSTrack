@@ -2,194 +2,209 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlucoTrack Pro</title>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MobileGluco</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        :root {
-            --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; --light: #f4f7f6;
-        }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--light); margin: 0; padding: 15px; color: var(--primary); }
-        .container { max-width: 800px; margin: auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; text-align: center; }
-        .stat-box { padding: 10px; border-radius: 8px; background: #fff; border: 1px solid #eee; }
-        .stat-val { font-size: 1.2rem; font-weight: bold; display: block; }
-        form { display: grid; gap: 10px; }
-        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
-        button { cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
-        .btn-add { background: var(--success); color: white; }
-        .btn-export { background: var(--primary); color: white; margin-top: 10px; width: 100%; }
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .range-low { color: var(--danger); font-weight: bold; }
-        .range-normal { color: var(--success); }
-        .range-high { color: var(--warning); font-weight: bold; }
-        canvas { max-height: 300px; }
+        :root { --primary: #4361ee; --success: #4cc9f0; --danger: #f72585; --bg: #f8f9fa; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        
+        /* Mobile Header */
+        header { background: white; padding: 15px; text-align: center; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
+        
+        /* Navigation */
+        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #eee; height: 65px; z-index: 1000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #888; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+
+        /* Sections */
+        .page { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Cards & UI Elements */
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
+        input, select { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; background: #fff; }
+        
+        .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { border: 1px solid var(--primary); color: var(--primary); background: none; }
+
+        /* Log List */
+        .log-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .val-badge { padding: 5px 10px; border-radius: 8px; color: white; font-weight: bold; }
+        .low { background: var(--danger); }
+        .normal { background: var(--success); }
+        .high { background: #f39c12; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🩸 GlucoTrack SPA</h2>
+<header><h2 id="page-title" style="margin:0; font-size: 1.2rem;">Dashboard</h2></header>
 
-    <div class="stats-grid">
-        <div class="stat-box">Avg<span id="avg-val" class="stat-val">-</span></div>
-        <div class="stat-box">Min<span id="min-val" class="stat-val">-</span></div>
-        <div class="stat-box">Max<span id="max-val" class="stat-val">-</span></div>
+<div id="dash" class="page active">
+    <div class="stat-grid">
+        <div class="card">
+            <small>Average</small>
+            <div id="avg-stat" style="font-size: 24px; font-weight: bold;">--</div>
+        </div>
+        <div class="card">
+            <small>In Target</small>
+            <div id="target-stat" style="font-size: 24px; font-weight: bold; color: var(--success);">--%</div>
+        </div>
     </div>
-
     <div class="card">
-        <canvas id="glucoseChart"></canvas>
+        <canvas id="mainChart"></canvas>
     </div>
+</div>
 
+<div id="add" class="page">
     <div class="card">
-        <form id="glucoseForm">
+        <div class="input-group">
+            <label>Glucose Level</label>
             <div style="display:flex; gap:10px;">
-                <input type="number" id="glucoseValue" placeholder="Value" step="0.1" required style="flex:2">
-                <select id="unit" style="flex:1">
+                <input type="number" id="gl-val" placeholder="120" style="flex:2">
+                <select id="gl-unit" style="flex:1">
                     <option value="mgdl">mg/dL</option>
                     <option value="mmol">mmol/L</option>
                 </select>
             </div>
-            <select id="context" required>
+        </div>
+        <div class="input-group">
+            <label>Time of Measurement</label>
+            <select id="gl-context">
                 <option value="Fasting">Fasting</option>
                 <option value="Pre-meal">Pre-meal</option>
-                <option value="Post-meal">Post-meal (2hr)</option>
+                <option value="Post-meal">Post-meal</option>
                 <option value="Bedtime">Bedtime</option>
             </select>
-            <input type="datetime-local" id="timestamp" required>
-            <button type="submit" class="btn-add">Add Reading</button>
-        </form>
-    </div>
-
-    <div class="card">
-        <div class="table-container">
-            <table id="historyTable">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Value</th>
-                        <th>Context</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
         </div>
-        <button onclick="exportToExcel()" class="btn-export">Export to Excel (.xlsx)</button>
+        <div class="input-group">
+            <label>Date/Time</label>
+            <input type="datetime-local" id="gl-time">
+        </div>
+        <button class="btn btn-primary" onclick="saveData()">Save Entry</button>
     </div>
 </div>
 
+<div id="history" class="page">
+    <div class="card">
+        <button class="btn btn-outline" onclick="exportExcel()" style="margin-bottom: 15px;">📥 Download Excel Report</button>
+        <div id="log-list"></div>
+    </div>
+</div>
+
+<nav>
+    <div class="nav-item active" onclick="showPage('dash', this)">🏠<span>Home</span></div>
+    <div class="nav-item" onclick="showPage('add', this)">➕<span>Add</span></div>
+    <div class="nav-item" onclick="showPage('history', this)">📜<span>Logs</span></div>
+</nav>
+
 <script>
-    // 1. Database Setup
-    const db = new Dexie("GlucoseDB");
-    db.version(1).stores({ readings: '++id, value, unit, context, timestamp' });
+    let readings = JSON.parse(localStorage.getItem('readings')) || [];
+    let chartInstance = null;
 
-    const form = document.getElementById('glucoseForm');
-    let chart;
-
-    // Set default datetime to now
-    document.getElementById('timestamp').value = new Date().toISOString().slice(0, 16);
-
-    // 2. Logic: Medical Ranges (mg/dL)
-    const getStatusClass = (val, unit) => {
-        const mgdl = unit === 'mmol' ? val * 18.018 : val;
-        if (mgdl < 70) return 'range-low';
-        if (mgdl > 180) return 'range-high';
-        return 'range-normal';
-    };
-
-    // 3. Render Dashboard & Table
-    async function refreshUI() {
-        const data = await db.readings.orderBy('timestamp').reverse().toArray();
-        const tableBody = document.getElementById('tableBody');
-        tableBody.innerHTML = '';
-
-        let total = 0, min = Infinity, max = -Infinity;
-
-        data.forEach(r => {
-            const statusClass = getStatusClass(r.value, r.unit);
-            total += parseFloat(r.value);
-            min = Math.min(min, r.value);
-            max = Math.max(max, r.value);
-
-            const row = `<tr>
-                <td>${new Date(r.timestamp).toLocaleDateString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
-                <td class="${statusClass}">${r.value} <small>${r.unit === 'mgdl' ? 'mg/dL' : 'mmol/L'}</small></td>
-                <td>${r.context}</td>
-                <td><button onclick="deleteEntry(${r.id})" style="color:red; background:none; border:none;">✕</button></td>
-            </tr>`;
-            tableBody.innerHTML += row;
-        });
-
-        // Update Stats
-        if(data.length > 0) {
-            document.getElementById('avg-val').innerText = (total / data.length).toFixed(1);
-            document.getElementById('min-val').innerText = min;
-            document.getElementById('max-val').innerText = max;
-        }
-
-        updateChart(data.slice().reverse());
+    function showPage(pageId, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        el.classList.add('active');
+        document.getElementById('page-title').innerText = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+        if(pageId === 'dash') renderDashboard();
+        if(pageId === 'history') renderHistory();
     }
 
-    // 4. Charting
-    function updateChart(data) {
-        const ctx = document.getElementById('glucoseChart').getContext('2d');
-        const labels = data.map(r => new Date(r.timestamp).toLocaleDateString());
-        const values = data.map(r => r.value);
+    function saveData() {
+        const val = parseFloat(document.getElementById('gl-val').value);
+        if(!val) return alert("Please enter a value");
 
-        if (chart) chart.destroy();
-        chart = new Chart(ctx, {
+        const entry = {
+            id: Date.now(),
+            value: val,
+            unit: document.getElementById('gl-unit').value,
+            context: document.getElementById('gl-context').value,
+            time: document.getElementById('gl-time').value || new Date().toISOString()
+        };
+
+        readings.push(entry);
+        localStorage.setItem('readings', JSON.stringify(readings));
+        alert("Saved!");
+        document.getElementById('gl-val').value = "";
+        showPage('dash', document.querySelector('.nav-item'));
+    }
+
+    function renderDashboard() {
+        if(readings.length === 0) return;
+        
+        const avg = readings.reduce((a, b) => a + b.value, 0) / readings.length;
+        document.getElementById('avg-stat').innerText = Math.round(avg);
+        
+        const inTarget = readings.filter(r => r.value >= 70 && r.value <= 180).length;
+        document.getElementById('target-stat').innerText = Math.round((inTarget/readings.length)*100) + "%";
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        
+        chartInstance = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels: readings.slice(-7).map(r => new Date(r.time).toLocaleDateString([], {day:'numeric', month:'short'})),
                 datasets: [{
-                    label: 'Glucose Level',
-                    data: values,
-                    borderColor: '#3498db',
-                    tension: 0.3,
+                    label: 'Glucose',
+                    data: readings.slice(-7).map(r => r.value),
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
                     fill: true,
-                    backgroundColor: 'rgba(52, 152, 219, 0.1)'
+                    tension: 0.4
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } }
         });
     }
 
-    // 5. Actions
-    form.onsubmit = async (e) => {
-        e.preventDefault();
-        await db.readings.add({
-            value: parseFloat(document.getElementById('glucoseValue').value),
-            unit: document.getElementById('unit').value,
-            context: document.getElementById('context').value,
-            timestamp: document.getElementById('timestamp').value
+    function renderHistory() {
+        const list = document.getElementById('log-list');
+        list.innerHTML = "";
+        [...readings].reverse().forEach(r => {
+            const status = r.value < 70 ? 'low' : (r.value > 180 ? 'high' : 'normal');
+            list.innerHTML += `
+                <div class="log-item">
+                    <div>
+                        <div style="font-weight:bold">${r.context}</div>
+                        <small style="color:#888">${new Date(r.time).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</small>
+                    </div>
+                    <div style="text-align:right">
+                        <span class="val-badge ${status}">${r.value}</span>
+                        <div style="font-size:10px; color:#aaa; margin-top:4px;" onclick="deleteRecord(${r.id})">Delete</div>
+                    </div>
+                </div>
+            `;
         });
-        form.reset();
-        document.getElementById('timestamp').value = new Date().toISOString().slice(0, 16);
-        refreshUI();
-    };
-
-    async function deleteEntry(id) {
-        await db.readings.delete(id);
-        refreshUI();
     }
 
-    async function exportToExcel() {
-        const data = await db.readings.toArray();
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Readings");
-        XLSX.writeFile(workbook, "Glucose_Log.xlsx");
+    function deleteRecord(id) {
+        if(confirm("Delete this entry?")) {
+            readings = readings.filter(r => r.id !== id);
+            localStorage.setItem('readings', JSON.stringify(readings));
+            renderHistory();
+        }
     }
 
-    // Initialize
-    refreshUI();
+    function exportExcel() {
+        const ws = XLSX.utils.json_to_sheet(readings);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Glucose Logs");
+        XLSX.writeFile(wb, "MyGlucoseData.xlsx");
+    }
+
+    // Default time init
+    document.getElementById('gl-time').value = new Date().toISOString().slice(0,16);
+    renderDashboard();
 </script>
 
 </body>
