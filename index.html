@@ -3,1118 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blood Glucose Monitor</title>
-    
-    <!-- External CDN Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    
+    <title>GlucoTrack Pro</title>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
-        /* Medical UI Design - Mobile-first, Clean, Professional */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         :root {
-            /* Medical Color Palette */
-            --primary-teal: #00897B;
-            --light-teal: #B2DFDB;
-            --bg-white: #FFFFFF;
-            --bg-light: #F5F5F5;
-            --text-dark: #263238;
-            --text-light: #546E7A;
-            --border-color: #CFD8DC;
-            
-            /* Alert Colors - ADA Guidelines */
-            --alert-hypo: #D32F2F;      /* Hypoglycemia (<70 mg/dL) */
-            --alert-target: #43A047;     /* Target Range (70-180 mg/dL) */
-            --alert-hyper: #FB8C00;      /* Hyperglycemia (>180 mg/dL) */
-            --alert-severe: #B71C1C;     /* Severe (>300 mg/dL) */
+            --primary: #2c3e50; --success: #27ae60; --warning: #f39c12; --danger: #e74c3c; --light: #f4f7f6;
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-            line-height: 1.6;
-            padding: 0;
-            margin: 0;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 10px;
-        }
-
-        header {
-            background: var(--primary-teal);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .section {
-            background: var(--bg-white);
-            border-radius: 8px;
-            padding: 20px;
-            margin: 15px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: var(--primary-teal);
-            border-bottom: 2px solid var(--light-teal);
-            padding-bottom: 8px;
-        }
-
-        /* Dashboard Statistics */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: var(--bg-light);
-            border-radius: 6px;
-            padding: 15px;
-            text-align: center;
-            border-left: 4px solid var(--primary-teal);
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: var(--text-light);
-            text-transform: uppercase;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--text-dark);
-        }
-
-        .stat-unit {
-            font-size: 14px;
-            color: var(--text-light);
-            margin-left: 3px;
-        }
-
-        /* Alert Status Colors */
-        .stat-card.hypo {
-            border-left-color: var(--alert-hypo);
-            background: #FFEBEE;
-        }
-
-        .stat-card.target {
-            border-left-color: var(--alert-target);
-            background: #E8F5E9;
-        }
-
-        .stat-card.hyper {
-            border-left-color: var(--alert-hyper);
-            background: #FFF3E0;
-        }
-
-        /* Form Styling */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: var(--text-dark);
-        }
-
-        input, select, textarea {
-            padding: 12px;
-            border: 2px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 16px;
-            font-family: inherit;
-            transition: border-color 0.3s;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: var(--primary-teal);
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-
-        /* Unit Toggle */
-        .unit-toggle {
-            display: flex;
-            gap: 10px;
-            margin-top: 5px;
-        }
-
-        .unit-toggle label {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-weight: 400;
-            cursor: pointer;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 14px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-primary {
-            background: var(--primary-teal);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #00796B;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .btn-secondary {
-            background: var(--text-light);
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #455A64;
-        }
-
-        .btn-danger {
-            background: var(--alert-hypo);
-            color: white;
-            padding: 8px 12px;
-            font-size: 14px;
-        }
-
-        .btn-danger:hover {
-            background: #B71C1C;
-        }
-
-        .btn-export {
-            background: var(--alert-target);
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-        }
-
-        .btn-export:hover {
-            background: #388E3C;
-        }
-
-        /* Chart Container */
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-top: 15px;
-        }
-
-        /* Data Table */
-        .table-container {
-            overflow-x: auto;
-            margin-top: 15px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        th {
-            background: var(--primary-teal);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-
-        td {
-            padding: 12px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        tbody tr:hover {
-            background: var(--bg-light);
-        }
-
-        /* Glucose Value Color Coding in Table */
-        .glucose-value {
-            font-weight: 700;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-
-        .glucose-value.hypo {
-            background: var(--alert-hypo);
-            color: white;
-        }
-
-        .glucose-value.target {
-            background: var(--alert-target);
-            color: white;
-        }
-
-        .glucose-value.hyper {
-            background: var(--alert-hyper);
-            color: white;
-        }
-
-        /* Context Tags */
-        .context-tag {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            background: var(--light-teal);
-            color: var(--text-dark);
-        }
-
-        /* Error Messages */
-        .error-message {
-            background: #FFEBEE;
-            color: var(--alert-hypo);
-            padding: 12px;
-            border-radius: 6px;
-            margin: 10px 0;
-            border-left: 4px solid var(--alert-hypo);
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        /* Loading Indicator */
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--text-light);
-        }
-
-        /* Responsive Design */
-        @media (min-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-
-            .form-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .form-group.full-width {
-                grid-column: 1 / -1;
-            }
-
-            .chart-container {
-                height: 400px;
-            }
-
-            h1 {
-                font-size: 32px;
-            }
-        }
-
-        @media (min-width: 1024px) {
-            .stats-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-light);
-        }
-
-        .empty-state h3 {
-            margin-bottom: 10px;
-        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--light); margin: 0; padding: 15px; color: var(--primary); }
+        .container { max-width: 800px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; text-align: center; }
+        .stat-box { padding: 10px; border-radius: 8px; background: #fff; border: 1px solid #eee; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; display: block; }
+        form { display: grid; gap: 10px; }
+        input, select, button { padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+        button { cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
+        .btn-add { background: var(--success); color: white; }
+        .btn-export { background: var(--primary); color: white; margin-top: 10px; width: 100%; }
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .status-dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .range-low { color: var(--danger); font-weight: bold; }
+        .range-normal { color: var(--success); }
+        .range-high { color: var(--warning); font-weight: bold; }
+        canvas { max-height: 300px; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>🩸 Blood Glucose Monitor</h1>
-        <p class="subtitle">Track and manage your diabetes with precision</p>
-    </header>
 
-    <div class="container">
-        <!-- Error Display -->
-        <div id="errorMessage" class="error-message"></div>
+<div class="container">
+    <h2>🩸 GlucoTrack SPA</h2>
 
-        <!-- Dashboard Section -->
-        <section class="section">
-            <h2 class="section-title">📊 Dashboard</h2>
-            <div class="stats-grid" id="statsGrid">
-                <div class="stat-card">
-                    <div class="stat-label">Average Glucose</div>
-                    <div class="stat-value">
-                        <span id="avgGlucose">--</span>
-                        <span class="stat-unit" id="avgUnit">mg/dL</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Highest</div>
-                    <div class="stat-value">
-                        <span id="maxGlucose">--</span>
-                        <span class="stat-unit" id="maxUnit">mg/dL</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Lowest</div>
-                    <div class="stat-value">
-                        <span id="minGlucose">--</span>
-                        <span class="stat-unit" id="minUnit">mg/dL</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Total Readings</div>
-                    <div class="stat-value">
-                        <span id="totalReadings">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chart -->
-            <div class="chart-container">
-                <canvas id="glucoseChart"></canvas>
-            </div>
-        </section>
-
-        <!-- Data Entry Form -->
-        <section class="section">
-            <h2 class="section-title">➕ Add New Reading</h2>
-            <form id="glucoseForm" class="form-grid">
-                <div class="form-group">
-                    <label for="dateInput">Date *</label>
-                    <input type="date" id="dateInput" required>
-                </div>
-                <div class="form-group">
-                    <label for="timeInput">Time *</label>
-                    <input type="time" id="timeInput" required>
-                </div>
-                <div class="form-group">
-                    <label for="glucoseValue">Glucose Value *</label>
-                    <input type="number" id="glucoseValue" min="20" max="600" step="1" required 
-                           placeholder="Enter value (20-600)">
-                    <div class="unit-toggle">
-                        <label>
-                            <input type="radio" name="unit" value="mgdl" checked>
-                            mg/dL (US)
-                        </label>
-                        <label>
-                            <input type="radio" name="unit" value="mmol">
-                            mmol/L (Intl)
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="contextSelect">Measurement Context *</label>
-                    <select id="contextSelect" required>
-                        <option value="">Select context...</option>
-                        <option value="fasting">Fasting</option>
-                        <option value="pre-meal">Pre-meal</option>
-                        <option value="post-meal-1hr">Post-meal (1hr)</option>
-                        <option value="post-meal-2hr">Post-meal (2hr)</option>
-                        <option value="bedtime">Bedtime</option>
-                        <option value="random">Random</option>
-                    </select>
-                </div>
-                <div class="form-group full-width">
-                    <label for="notesInput">Notes (Optional)</label>
-                    <textarea id="notesInput" placeholder="Diet details, medication, exercise, etc."></textarea>
-                </div>
-                <div class="form-group full-width">
-                    <button type="submit" class="btn btn-primary">Save Reading</button>
-                </div>
-            </form>
-        </section>
-
-        <!-- Data Table -->
-        <section class="section">
-            <h2 class="section-title">📋 Reading History</h2>
-            <button class="btn btn-export" id="exportBtn">📥 Export to Excel</button>
-            <div class="table-container">
-                <table id="dataTable">
-                    <thead>
-                        <tr>
-                            <th>Date & Time</th>
-                            <th>Glucose</th>
-                            <th>Context</th>
-                            <th>Notes</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <tr>
-                            <td colspan="5" class="empty-state">
-                                <h3>No readings yet</h3>
-                                <p>Add your first glucose reading above</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+    <div class="stats-grid">
+        <div class="stat-box">Avg<span id="avg-val" class="stat-val">-</span></div>
+        <div class="stat-box">Min<span id="min-val" class="stat-val">-</span></div>
+        <div class="stat-box">Max<span id="max-val" class="stat-val">-</span></div>
     </div>
 
-    <script>
-        /**
-         * Blood Glucose Monitor Application
-         * 
-         * This application follows American Diabetes Association (ADA) guidelines for
-         * blood glucose monitoring and management. Key medical standards implemented:
-         * 
-         * - Target Range: 70-180 mg/dL (3.9-10.0 mmol/L)
-         * - Hypoglycemia: <70 mg/dL (<3.9 mmol/L) - Requires immediate attention
-         * - Hyperglycemia: >180 mg/dL (>10.0 mmol/L) - May require insulin adjustment
-         * - Severe Hyperglycemia: >300 mg/dL (>16.7 mmol/L) - Urgent medical attention
-         * 
-         * Data validation ensures readings fall within physiologically possible ranges
-         * (20-600 mg/dL) to prevent data entry errors.
-         */
+    <div class="card">
+        <canvas id="glucoseChart"></canvas>
+    </div>
 
-        // Initialize Dexie.js database
-        const db = new Dexie('GlucoseMonitorDB');
-        
-        /**
-         * Database Schema
-         * Version 1: Initial schema with glucose readings table
-         * 
-         * Fields:
-         * - id: Auto-incrementing primary key
-         * - timestamp: ISO 8601 date-time string (indexed for sorting)
-         * - glucoseValue: Number in mg/dL (normalized storage format)
-         * - unit: String ('mgdl' or 'mmol') - user's input unit
-         * - context: String (measurement timing - critical for medical interpretation)
-         * - notes: String (optional patient notes)
-         */
-        db.version(1).stores({
-            readings: '++id, timestamp, glucoseValue, context'
+    <div class="card">
+        <form id="glucoseForm">
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="glucoseValue" placeholder="Value" step="0.1" required style="flex:2">
+                <select id="unit" style="flex:1">
+                    <option value="mgdl">mg/dL</option>
+                    <option value="mmol">mmol/L</option>
+                </select>
+            </div>
+            <select id="context" required>
+                <option value="Fasting">Fasting</option>
+                <option value="Pre-meal">Pre-meal</option>
+                <option value="Post-meal">Post-meal (2hr)</option>
+                <option value="Bedtime">Bedtime</option>
+            </select>
+            <input type="datetime-local" id="timestamp" required>
+            <button type="submit" class="btn-add">Add Reading</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="table-container">
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Value</th>
+                        <th>Context</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <button onclick="exportToExcel()" class="btn-export">Export to Excel (.xlsx)</button>
+    </div>
+</div>
+
+<script>
+    // 1. Database Setup
+    const db = new Dexie("GlucoseDB");
+    db.version(1).stores({ readings: '++id, value, unit, context, timestamp' });
+
+    const form = document.getElementById('glucoseForm');
+    let chart;
+
+    // Set default datetime to now
+    document.getElementById('timestamp').value = new Date().toISOString().slice(0, 16);
+
+    // 2. Logic: Medical Ranges (mg/dL)
+    const getStatusClass = (val, unit) => {
+        const mgdl = unit === 'mmol' ? val * 18.018 : val;
+        if (mgdl < 70) return 'range-low';
+        if (mgdl > 180) return 'range-high';
+        return 'range-normal';
+    };
+
+    // 3. Render Dashboard & Table
+    async function refreshUI() {
+        const data = await db.readings.orderBy('timestamp').reverse().toArray();
+        const tableBody = document.getElementById('tableBody');
+        tableBody.innerHTML = '';
+
+        let total = 0, min = Infinity, max = -Infinity;
+
+        data.forEach(r => {
+            const statusClass = getStatusClass(r.value, r.unit);
+            total += parseFloat(r.value);
+            min = Math.min(min, r.value);
+            max = Math.max(max, r.value);
+
+            const row = `<tr>
+                <td>${new Date(r.timestamp).toLocaleDateString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                <td class="${statusClass}">${r.value} <small>${r.unit === 'mgdl' ? 'mg/dL' : 'mmol/L'}</small></td>
+                <td>${r.context}</td>
+                <td><button onclick="deleteEntry(${r.id})" style="color:red; background:none; border:none;">✕</button></td>
+            </tr>`;
+            tableBody.innerHTML += row;
         });
 
-        // Global state
-        let glucoseChart = null;
-
-        /**
-         * Medical Unit Conversion
-         * Standard conversion factor: 1 mmol/L = 18.018 mg/dL
-         * Rounded to 18 for simplicity in clinical practice
-         */
-        const CONVERSION_FACTOR = 18.0;
-
-        /**
-         * ADA Glucose Range Thresholds (in mg/dL)
-         * These values are used for color-coding and alerts
-         */
-        const GLUCOSE_RANGES = {
-            HYPO_THRESHOLD: 70,      // Below this is hypoglycemia (dangerous)
-            TARGET_LOWER: 70,        // Lower bound of target range
-            TARGET_UPPER: 180,       // Upper bound of target range
-            HYPER_THRESHOLD: 180,    // Above this is hyperglycemia
-            SEVERE_THRESHOLD: 300,   // Severely high, needs urgent attention
-            MIN_VALID: 20,          // Minimum physiologically possible
-            MAX_VALID: 600          // Maximum physiologically possible
-        };
-
-        /**
-         * Context labels for measurement timing
-         * Used consistently across the application
-         */
-        const CONTEXT_LABELS = {
-            'fasting': 'Fasting',
-            'pre-meal': 'Pre-meal',
-            'post-meal-1hr': 'Post-meal (1hr)',
-            'post-meal-2hr': 'Post-meal (2hr)',
-            'bedtime': 'Bedtime',
-            'random': 'Random'
-        };
-
-        /**
-         * Get current display unit from DOM
-         * @returns {string} Current unit ('mgdl' or 'mmol')
-         */
-        function getCurrentUnit() {
-            return document.querySelector('input[name="unit"]:checked')?.value || 'mgdl';
+        // Update Stats
+        if(data.length > 0) {
+            document.getElementById('avg-val').innerText = (total / data.length).toFixed(1);
+            document.getElementById('min-val').innerText = min;
+            document.getElementById('max-val').innerText = max;
         }
 
-        /**
-         * Convert glucose value between units
-         * @param {number} value - The glucose value
-         * @param {string} fromUnit - Source unit ('mgdl' or 'mmol')
-         * @param {string} toUnit - Target unit ('mgdl' or 'mmol')
-         * @returns {number} Converted value
-         */
-        function convertGlucose(value, fromUnit, toUnit) {
-            if (fromUnit === toUnit) return value;
-            
-            if (fromUnit === 'mmol' && toUnit === 'mgdl') {
-                return value * CONVERSION_FACTOR;
-            } else if (fromUnit === 'mgdl' && toUnit === 'mmol') {
-                return value / CONVERSION_FACTOR;
-            }
-            return value;
-        }
+        updateChart(data.slice().reverse());
+    }
 
-        /**
-         * Classify glucose level according to ADA guidelines
-         * @param {number} value - Glucose value in mg/dL
-         * @returns {string} Classification: 'hypo', 'target', 'hyper', or 'severe'
-         */
-        function classifyGlucose(value) {
-            if (value < GLUCOSE_RANGES.HYPO_THRESHOLD) return 'hypo';
-            if (value <= GLUCOSE_RANGES.TARGET_UPPER) return 'target';
-            if (value <= GLUCOSE_RANGES.SEVERE_THRESHOLD) return 'hyper';
-            return 'severe';
-        }
+    // 4. Charting
+    function updateChart(data) {
+        const ctx = document.getElementById('glucoseChart').getContext('2d');
+        const labels = data.map(r => new Date(r.timestamp).toLocaleDateString());
+        const values = data.map(r => r.value);
 
-        /**
-         * Get color for glucose value based on medical ranges
-         * @param {number} value - Glucose value in mg/dL
-         * @returns {string} CSS color value
-         */
-        function getGlucoseColor(value) {
-            const classification = classifyGlucose(value);
-            const colors = {
-                'hypo': '#D32F2F',
-                'target': '#43A047',
-                'hyper': '#FB8C00',
-                'severe': '#B71C1C'
-            };
-            return colors[classification];
-        }
-
-        /**
-         * Format glucose value for display
-         * @param {number} value - Value in mg/dL
-         * @param {string} unit - Display unit
-         * @returns {string} Formatted string
-         */
-        function formatGlucose(value, unit) {
-            const displayValue = unit === 'mmol' 
-                ? (value / CONVERSION_FACTOR).toFixed(1)
-                : Math.round(value);
-            return displayValue;
-        }
-
-        /**
-         * Validate glucose input value
-         * Ensures value is within physiologically possible range
-         * @param {number} value - Value to validate (in mg/dL)
-         * @returns {boolean} True if valid
-         */
-        function validateGlucoseValue(value) {
-            return value >= GLUCOSE_RANGES.MIN_VALID && 
-                   value <= GLUCOSE_RANGES.MAX_VALID;
-        }
-
-        /**
-         * Show error message to user
-         * @param {string} message - Error message to display
-         */
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
-            setTimeout(() => {
-                errorDiv.classList.remove('show');
-            }, 5000);
-        }
-
-        /**
-         * Initialize the application
-         * Sets up event listeners and loads initial data
-         */
-        async function initApp() {
-            try {
-                // Set current date and time
-                const now = new Date();
-                document.getElementById('dateInput').valueAsDate = now;
-                document.getElementById('timeInput').value = 
-                    now.toTimeString().substring(0, 5);
-
-                // Load and display data
-                await updateDashboard();
-                await updateTable();
-                await updateChart();
-
-                // Setup form submission
-                document.getElementById('glucoseForm').addEventListener('submit', handleFormSubmit);
-
-                // Setup export button
-                document.getElementById('exportBtn').addEventListener('click', exportToExcel);
-
-                // Update glucose value placeholder when unit changes
-                document.querySelectorAll('input[name="unit"]').forEach(radio => {
-                    radio.addEventListener('change', updateGlucosePlaceholder);
-                });
-
-            } catch (error) {
-                console.error('Initialization error:', error);
-                showError('Failed to initialize application. Please refresh the page.');
-            }
-        }
-
-        /**
-         * Update glucose input placeholder based on selected unit
-         */
-        function updateGlucosePlaceholder() {
-            const unit = document.querySelector('input[name="unit"]:checked').value;
-            const input = document.getElementById('glucoseValue');
-            
-            if (unit === 'mmol') {
-                input.placeholder = 'Enter value (1.1-33.3)';
-                input.min = '1.1';
-                input.max = '33.3';
-                input.step = '0.1';
-            } else {
-                input.placeholder = 'Enter value (20-600)';
-                input.min = '20';
-                input.max = '600';
-                input.step = '1';
-            }
-        }
-
-        /**
-         * Handle form submission
-         * Validates input and saves to database
-         * @param {Event} e - Form submit event
-         */
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-
-            try {
-                // Gather form data
-                const date = document.getElementById('dateInput').value;
-                const time = document.getElementById('timeInput').value;
-                const glucoseInput = parseFloat(document.getElementById('glucoseValue').value);
-                const unit = document.querySelector('input[name="unit"]:checked').value;
-                const context = document.getElementById('contextSelect').value;
-                const notes = document.getElementById('notesInput').value.trim();
-
-                // Convert to mg/dL for storage (normalized format)
-                const glucoseValue = convertGlucose(glucoseInput, unit, 'mgdl');
-
-                // Validate glucose value
-                if (!validateGlucoseValue(glucoseValue)) {
-                    showError('Glucose value out of valid range. Please check your input.');
-                    return;
-                }
-
-                // Create timestamp (ISO 8601 format for precise sorting)
-                const timestamp = new Date(`${date}T${time}`).toISOString();
-
-                // Save to database
-                await db.readings.add({
-                    timestamp,
-                    glucoseValue,
-                    unit,
-                    context,
-                    notes
-                });
-
-                // Reset form
-                e.target.reset();
-                const now = new Date();
-                document.getElementById('dateInput').valueAsDate = now;
-                document.getElementById('timeInput').value = now.toTimeString().substring(0, 5);
-
-                // Refresh UI
-                await updateDashboard();
-                await updateTable();
-                await updateChart();
-
-            } catch (error) {
-                console.error('Error saving reading:', error);
-                showError('Failed to save reading. Please try again.');
-            }
-        }
-
-        /**
-         * Update dashboard statistics
-         * Calculates average, min, max, and applies color coding based on medical ranges
-         */
-        async function updateDashboard() {
-            try {
-                const readings = await db.readings.toArray();
-                
-                if (readings.length === 0) {
-                    document.getElementById('avgGlucose').textContent = '--';
-                    document.getElementById('maxGlucose').textContent = '--';
-                    document.getElementById('minGlucose').textContent = '--';
-                    document.getElementById('totalReadings').textContent = '0';
-                    return;
-                }
-
-                // Calculate statistics
-                const values = readings.map(r => r.glucoseValue);
-                const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                const max = Math.max(...values);
-                const min = Math.min(...values);
-
-                // Get current display unit
-                const displayUnit = getCurrentUnit();
-                const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
-
-                // Update display
-                document.getElementById('avgGlucose').textContent = formatGlucose(avg, displayUnit);
-                document.getElementById('maxGlucose').textContent = formatGlucose(max, displayUnit);
-                document.getElementById('minGlucose').textContent = formatGlucose(min, displayUnit);
-                document.getElementById('totalReadings').textContent = readings.length;
-
-                // Update unit labels
-                document.querySelectorAll('.stat-unit').forEach(el => {
-                    if (el.id !== 'totalReadings') {
-                        el.textContent = unitLabel;
-                    }
-                });
-
-                // Apply color coding to stat cards based on ADA guidelines
-                const avgCard = document.querySelector('.stat-card');
-                avgCard.className = 'stat-card ' + classifyGlucose(avg);
-
-                // Color code max and min
-                const statCards = document.querySelectorAll('.stat-card');
-                if (statCards[1]) statCards[1].className = 'stat-card ' + classifyGlucose(max);
-                if (statCards[2]) statCards[2].className = 'stat-card ' + classifyGlucose(min);
-
-            } catch (error) {
-                console.error('Error updating dashboard:', error);
-            }
-        }
-
-        /**
-         * Update data table with all readings
-         * Displays readings in reverse chronological order (newest first)
-         */
-        async function updateTable() {
-            try {
-                const readings = await db.readings
-                    .orderBy('timestamp')
-                    .reverse()
-                    .toArray();
-
-                const tbody = document.getElementById('tableBody');
-                
-                if (readings.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="5" class="empty-state">
-                                <h3>No readings yet</h3>
-                                <p>Add your first glucose reading above</p>
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                // Get current display unit
-                const displayUnit = getCurrentUnit();
-                const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
-
-                tbody.innerHTML = readings.map(reading => {
-                    const date = new Date(reading.timestamp);
-                    const formattedDate = date.toLocaleDateString();
-                    const formattedTime = date.toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
-                    const glucoseClass = classifyGlucose(reading.glucoseValue);
-                    const displayValue = formatGlucose(reading.glucoseValue, displayUnit);
-
-                    return `
-                        <tr>
-                            <td>${formattedDate} ${formattedTime}</td>
-                            <td>
-                                <span class="glucose-value ${glucoseClass}">
-                                    ${displayValue} ${unitLabel}
-                                </span>
-                            </td>
-                            <td><span class="context-tag">${CONTEXT_LABELS[reading.context]}</span></td>
-                            <td>${reading.notes || '-'}</td>
-                            <td>
-                                <button class="btn btn-danger" onclick="deleteReading(${reading.id})">
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-
-            } catch (error) {
-                console.error('Error updating table:', error);
-            }
-        }
-
-        /**
-         * Delete a reading from the database
-         * @param {number} id - Reading ID to delete
-         */
-        async function deleteReading(id) {
-            if (!confirm('Are you sure you want to delete this reading?')) {
-                return;
-            }
-
-            try {
-                await db.readings.delete(id);
-                await updateDashboard();
-                await updateTable();
-                await updateChart();
-            } catch (error) {
-                console.error('Error deleting reading:', error);
-                showError('Failed to delete reading. Please try again.');
-            }
-        }
-
-        /**
-         * Update chart visualization
-         * Creates a line chart with color-coded data points based on measurement context
-         */
-        async function updateChart() {
-            try {
-                const readings = await db.readings
-                    .orderBy('timestamp')
-                    .toArray();
-
-                const canvas = document.getElementById('glucoseChart');
-                const ctx = canvas.getContext('2d');
-
-                // Destroy existing chart if it exists
-                if (glucoseChart) {
-                    glucoseChart.destroy();
-                }
-
-                if (readings.length === 0) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.font = '16px Arial';
-                    ctx.fillStyle = '#546E7A';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('No data to display', canvas.width / 2, canvas.height / 2);
-                    return;
-                }
-
-                // Get current display unit
-                const displayUnit = getCurrentUnit();
-                const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
-
-                // Prepare data - group by context for different colored lines
-                const contextColors = {
-                    'fasting': '#1976D2',
-                    'pre-meal': '#7B1FA2',
-                    'post-meal-1hr': '#E64A19',
-                    'post-meal-2hr': '#F57C00',
-                    'bedtime': '#512DA8',
-                    'random': '#616161'
-                };
-
-                // Create datasets by context
-                const datasets = [];
-                const contexts = [...new Set(readings.map(r => r.context))];
-                
-                contexts.forEach(context => {
-                    const contextReadings = readings.filter(r => r.context === context);
-                    const data = contextReadings.map(r => ({
-                        x: new Date(r.timestamp),
-                        y: displayUnit === 'mmol' 
-                            ? (r.glucoseValue / CONVERSION_FACTOR) 
-                            : r.glucoseValue
-                    }));
-
-                    datasets.push({
-                        label: CONTEXT_LABELS[context],
-                        data: data,
-                        borderColor: contextColors[context],
-                        backgroundColor: contextColors[context] + '33',
-                        borderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        tension: 0.1
-                    });
-                });
-
-                glucoseChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top'
-                            },
-                            title: {
-                                display: true,
-                                text: 'Glucose Trends Over Time',
-                                font: { size: 16, weight: 'bold' }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        label += context.parsed.y.toFixed(displayUnit === 'mmol' ? 1 : 0);
-                                        label += ' ' + unitLabel;
-                                        return label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'day',
-                                    displayFormats: {
-                                        day: 'MMM d'
-                                    }
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Date'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: `Glucose (${unitLabel})`
-                                },
-                                min: displayUnit === 'mmol' ? 0 : 0,
-                                max: displayUnit === 'mmol' ? 20 : 350
-                            }
-                        }
-                    }
-                });
-
-            } catch (error) {
-                console.error('Error updating chart:', error);
-            }
-        }
-
-        /**
-         * Export data to Excel file
-         * Uses SheetJS to create a downloadable .xlsx file with all readings
-         */
-        async function exportToExcel() {
-            try {
-                const readings = await db.readings
-                    .orderBy('timestamp')
-                    .reverse()
-                    .toArray();
-
-                if (readings.length === 0) {
-                    showError('No data to export');
-                    return;
-                }
-
-                // Prepare data for export
-                const exportData = readings.map(reading => {
-                    const date = new Date(reading.timestamp);
-                    return {
-                        'Date': date.toLocaleDateString(),
-                        'Time': date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                        'Glucose (mg/dL)': Math.round(reading.glucoseValue),
-                        'Glucose (mmol/L)': (reading.glucoseValue / CONVERSION_FACTOR).toFixed(1),
-                        'Context': reading.context,
-                        'Notes': reading.notes || ''
-                    };
-                });
-
-                // Create workbook and worksheet
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.json_to_sheet(exportData);
-
-                // Set column widths
-                ws['!cols'] = [
-                    { wch: 12 },  // Date
-                    { wch: 10 },  // Time
-                    { wch: 18 },  // Glucose mg/dL
-                    { wch: 18 },  // Glucose mmol/L
-                    { wch: 20 },  // Context
-                    { wch: 30 }   // Notes
-                ];
-
-                // Add worksheet to workbook
-                XLSX.utils.book_append_sheet(wb, ws, 'Glucose Readings');
-
-                // Generate filename with current date
-                const filename = `glucose_readings_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-                // Download file
-                XLSX.writeFile(wb, filename);
-
-            } catch (error) {
-                console.error('Error exporting to Excel:', error);
-                showError('Failed to export data. Please ensure you have the latest browser version.');
-            }
-        }
-
-        // Make deleteReading available globally
-        window.deleteReading = deleteReading;
-
-        // Initialize app when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initApp);
-        } else {
-            initApp();
-        }
-
-        // Error handling for CDN failures
-        window.addEventListener('error', function(e) {
-            if (e.target.tagName === 'SCRIPT') {
-                showError('Failed to load external libraries. Please check your internet connection.');
-            }
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Glucose Level',
+                    data: values,
+                    borderColor: '#3498db',
+                    tension: 0.3,
+                    fill: true,
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
         });
-    </script>
+    }
+
+    // 5. Actions
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        await db.readings.add({
+            value: parseFloat(document.getElementById('glucoseValue').value),
+            unit: document.getElementById('unit').value,
+            context: document.getElementById('context').value,
+            timestamp: document.getElementById('timestamp').value
+        });
+        form.reset();
+        document.getElementById('timestamp').value = new Date().toISOString().slice(0, 16);
+        refreshUI();
+    };
+
+    async function deleteEntry(id) {
+        await db.readings.delete(id);
+        refreshUI();
+    }
+
+    async function exportToExcel() {
+        const data = await db.readings.toArray();
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Readings");
+        XLSX.writeFile(workbook, "Glucose_Log.xlsx");
+    }
+
+    // Initialize
+    refreshUI();
+</script>
+
 </body>
 </html>
