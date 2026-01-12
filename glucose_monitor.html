@@ -543,7 +543,6 @@
 
         // Global state
         let glucoseChart = null;
-        const currentUnit = 'mgdl'; // Default display unit
 
         /**
          * Medical Unit Conversion
@@ -565,6 +564,27 @@
             MIN_VALID: 20,          // Minimum physiologically possible
             MAX_VALID: 600          // Maximum physiologically possible
         };
+
+        /**
+         * Context labels for measurement timing
+         * Used consistently across the application
+         */
+        const CONTEXT_LABELS = {
+            'fasting': 'Fasting',
+            'pre-meal': 'Pre-meal',
+            'post-meal-1hr': 'Post-meal (1hr)',
+            'post-meal-2hr': 'Post-meal (2hr)',
+            'bedtime': 'Bedtime',
+            'random': 'Random'
+        };
+
+        /**
+         * Get current display unit from DOM
+         * @returns {string} Current unit ('mgdl' or 'mmol')
+         */
+        function getCurrentUnit() {
+            return document.querySelector('input[name="unit"]:checked')?.value || 'mgdl';
+        }
 
         /**
          * Convert glucose value between units
@@ -781,7 +801,7 @@
                 const min = Math.min(...values);
 
                 // Get current display unit
-                const displayUnit = document.querySelector('input[name="unit"]:checked')?.value || 'mgdl';
+                const displayUnit = getCurrentUnit();
                 const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
 
                 // Update display
@@ -837,7 +857,7 @@
                 }
 
                 // Get current display unit
-                const displayUnit = document.querySelector('input[name="unit"]:checked')?.value || 'mgdl';
+                const displayUnit = getCurrentUnit();
                 const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
 
                 tbody.innerHTML = readings.map(reading => {
@@ -849,16 +869,6 @@
                     });
                     const glucoseClass = classifyGlucose(reading.glucoseValue);
                     const displayValue = formatGlucose(reading.glucoseValue, displayUnit);
-                    
-                    // Format context for display
-                    const contextLabels = {
-                        'fasting': 'Fasting',
-                        'pre-meal': 'Pre-meal',
-                        'post-meal-1hr': 'Post-meal (1hr)',
-                        'post-meal-2hr': 'Post-meal (2hr)',
-                        'bedtime': 'Bedtime',
-                        'random': 'Random'
-                    };
 
                     return `
                         <tr>
@@ -868,7 +878,7 @@
                                     ${displayValue} ${unitLabel}
                                 </span>
                             </td>
-                            <td><span class="context-tag">${contextLabels[reading.context]}</span></td>
+                            <td><span class="context-tag">${CONTEXT_LABELS[reading.context]}</span></td>
                             <td>${reading.notes || '-'}</td>
                             <td>
                                 <button class="btn btn-danger" onclick="deleteReading(${reading.id})">
@@ -932,7 +942,7 @@
                 }
 
                 // Get current display unit
-                const displayUnit = document.querySelector('input[name="unit"]:checked')?.value || 'mgdl';
+                const displayUnit = getCurrentUnit();
                 const unitLabel = displayUnit === 'mmol' ? 'mmol/L' : 'mg/dL';
 
                 // Prepare data - group by context for different colored lines
@@ -958,17 +968,8 @@
                             : r.glucoseValue
                     }));
 
-                    const contextLabels = {
-                        'fasting': 'Fasting',
-                        'pre-meal': 'Pre-meal',
-                        'post-meal-1hr': 'Post-meal (1hr)',
-                        'post-meal-2hr': 'Post-meal (2hr)',
-                        'bedtime': 'Bedtime',
-                        'random': 'Random'
-                    };
-
                     datasets.push({
-                        label: contextLabels[context],
+                        label: CONTEXT_LABELS[context],
                         data: data,
                         borderColor: contextColors[context],
                         backgroundColor: contextColors[context] + '33',
