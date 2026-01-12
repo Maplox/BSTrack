@@ -8,6 +8,7 @@
     <!-- External CDN Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     
     <style>
@@ -978,14 +979,6 @@
                     });
                 });
 
-                // Reference lines for target range (converted to display unit)
-                const targetLower = displayUnit === 'mmol' 
-                    ? GLUCOSE_RANGES.TARGET_LOWER / CONVERSION_FACTOR 
-                    : GLUCOSE_RANGES.TARGET_LOWER;
-                const targetUpper = displayUnit === 'mmol' 
-                    ? GLUCOSE_RANGES.TARGET_UPPER / CONVERSION_FACTOR 
-                    : GLUCOSE_RANGES.TARGET_UPPER;
-
                 glucoseChart = new Chart(ctx, {
                     type: 'line',
                     data: { datasets },
@@ -1037,29 +1030,6 @@
                                 },
                                 min: displayUnit === 'mmol' ? 0 : 0,
                                 max: displayUnit === 'mmol' ? 20 : 350
-                            }
-                        },
-                        // Add reference lines for target range
-                        plugins: {
-                            annotation: {
-                                annotations: {
-                                    targetLower: {
-                                        type: 'line',
-                                        yMin: targetLower,
-                                        yMax: targetLower,
-                                        borderColor: '#43A047',
-                                        borderWidth: 1,
-                                        borderDash: [5, 5]
-                                    },
-                                    targetUpper: {
-                                        type: 'line',
-                                        yMin: targetUpper,
-                                        yMax: targetUpper,
-                                        borderColor: '#FB8C00',
-                                        borderWidth: 1,
-                                        borderDash: [5, 5]
-                                    }
-                                }
                             }
                         }
                     }
