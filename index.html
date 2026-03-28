@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MobileGluco</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #4361ee; --success: #4cc9f0; --danger: #f72585; --bg: #f8f9fa; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding-bottom: 80px; }
+        
+        /* Mobile Header */
+        header { background: white; padding: 15px; text-align: center; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 100; }
+        
+        /* Navigation */
+        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #eee; height: 65px; z-index: 1000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: #888; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+
+        /* Sections */
+        .page { display: none; padding: 15px; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Cards & UI Elements */
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
+        input, select { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; background: #fff; }
+        
+        .btn { width: 100%; padding: 15px; border-radius: 10px; border: none; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { border: 1px solid var(--primary); color: var(--primary); background: none; }
+
+        /* Log List */
+        .log-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .val-badge { padding: 5px 10px; border-radius: 8px; color: white; font-weight: bold; }
+        .low { background: var(--danger); }
+        .normal { background: var(--success); }
+        .high { background: #f39c12; }
+    </style>
+</head>
+<body>
+
+<header><h2 id="page-title" style="margin:0; font-size: 1.2rem;">Dashboard</h2></header>
+
+<div id="dash" class="page active">
+    <div class="stat-grid">
+        <div class="card">
+            <small>Average</small>
+            <div id="avg-stat" style="font-size: 24px; font-weight: bold;">--</div>
+        </div>
+        <div class="card">
+            <small>In Target</small>
+            <div id="target-stat" style="font-size: 24px; font-weight: bold; color: var(--success);">--%</div>
+        </div>
+    </div>
+    <div class="card">
+        <canvas id="mainChart"></canvas>
+    </div>
+</div>
+
+<div id="add" class="page">
+    <div class="card">
+        <div class="input-group">
+            <label>Glucose Level</label>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="gl-val" placeholder="120" style="flex:2">
+                <select id="gl-unit" style="flex:1">
+                    <option value="mgdl">mg/dL</option>
+                    <option value="mmol">mmol/L</option>
+                </select>
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Time of Measurement</label>
+            <select id="gl-context">
+                <option value="Fasting">Fasting</option>
+                <option value="Pre-meal">Pre-meal</option>
+                <option value="Post-meal">Post-meal</option>
+                <option value="Bedtime">Bedtime</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Date/Time</label>
+            <input type="datetime-local" id="gl-time">
+        </div>
+        <button class="btn btn-primary" onclick="saveData()">Save Entry</button>
+    </div>
+</div>
+
+<div id="history" class="page">
+    <div class="card">
+        <button class="btn btn-outline" onclick="exportExcel()" style="margin-bottom: 15px;">📥 Download Excel Report</button>
+        <div id="log-list"></div>
+    </div>
+</div>
+
+<nav>
+    <div class="nav-item active" onclick="showPage('dash', this)">🏠<span>Home</span></div>
+    <div class="nav-item" onclick="showPage('add', this)">➕<span>Add</span></div>
+    <div class="nav-item" onclick="showPage('history', this)">📜<span>Logs</span></div>
+</nav>
+
+<script>
+    let readings = JSON.parse(localStorage.getItem('readings')) || [];
+    let chartInstance = null;
+
+    function showPage(pageId, el) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        el.classList.add('active');
+        document.getElementById('page-title').innerText = pageId.charAt(0).toUpperCase() + pageId.slice(1);
+        if(pageId === 'dash') renderDashboard();
+        if(pageId === 'history') renderHistory();
+    }
+
+    function saveData() {
+        const val = parseFloat(document.getElementById('gl-val').value);
+        if(!val) return alert("Please enter a value");
+
+        const entry = {
+            id: Date.now(),
+            value: val,
+            unit: document.getElementById('gl-unit').value,
+            context: document.getElementById('gl-context').value,
+            time: document.getElementById('gl-time').value || new Date().toISOString()
+        };
+
+        readings.push(entry);
+        localStorage.setItem('readings', JSON.stringify(readings));
+        alert("Saved!");
+        document.getElementById('gl-val').value = "";
+        showPage('dash', document.querySelector('.nav-item'));
+    }
+
+    function renderDashboard() {
+        if(readings.length === 0) return;
+        
+        const avg = readings.reduce((a, b) => a + b.value, 0) / readings.length;
+        document.getElementById('avg-stat').innerText = Math.round(avg);
+        
+        const inTarget = readings.filter(r => r.value >= 70 && r.value <= 180).length;
+        document.getElementById('target-stat').innerText = Math.round((inTarget/readings.length)*100) + "%";
+
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: readings.slice(-7).map(r => new Date(r.time).toLocaleDateString([], {day:'numeric', month:'short'})),
+                datasets: [{
+                    label: 'Glucose',
+                    data: readings.slice(-7).map(r => r.value),
+                    borderColor: '#4361ee',
+                    backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } } }
+        });
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('log-list');
+        list.innerHTML = "";
+        [...readings].reverse().forEach(r => {
+            const status = r.value < 70 ? 'low' : (r.value > 180 ? 'high' : 'normal');
+            list.innerHTML += `
+                <div class="log-item">
+                    <div>
+                        <div style="font-weight:bold">${r.context}</div>
+                        <small style="color:#888">${new Date(r.time).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</small>
+                    </div>
+                    <div style="text-align:right">
+                        <span class="val-badge ${status}">${r.value}</span>
+                        <div style="font-size:10px; color:#aaa; margin-top:4px;" onclick="deleteRecord(${r.id})">Delete</div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function deleteRecord(id) {
+        if(confirm("Delete this entry?")) {
+            readings = readings.filter(r => r.id !== id);
+            localStorage.setItem('readings', JSON.stringify(readings));
+            renderHistory();
+        }
+    }
+
+    function exportExcel() {
+        const ws = XLSX.utils.json_to_sheet(readings);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Glucose Logs");
+        XLSX.writeFile(wb, "MyGlucoseData.xlsx");
+    }
+
+    // Default time init
+    document.getElementById('gl-time').value = new Date().toISOString().slice(0,16);
+    renderDashboard();
+</script>
+
+</body>
+</html>
